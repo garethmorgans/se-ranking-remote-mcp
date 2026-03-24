@@ -1,51 +1,106 @@
-# Building a Remote MCP Server on Cloudflare (Without Auth)
+# SE Ranking MCP on Cloudflare Workers
 
-This example allows you to deploy a remote MCP server that doesn't require authentication on Cloudflare Workers.
+Cloudflare Workers-hosted MCP server for SE Ranking Data + Project APIs. This repo is based on the Cloudflare remote MCP authless template and adapted to call SE Ranking directly (no Docker runtime required in production).
 
-## Get started:
+## What it exposes
 
-[![Deploy to Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/cloudflare/ai/tree/main/demos/remote-mcp-authless)
+The MCP server includes tools for:
 
-This will deploy your MCP server to a URL like: `remote-mcp-server-authless.<your-account>.workers.dev/sse`
+- Keyword research (`keyword_export_metrics`, `keyword_related`, `keyword_similar`)
+- Domain analysis (`domain_overview`, `domain_keywords`, `domain_keyword_comparison`, `domain_competitors`)
+- Backlinks (`backlinks_summary`, `backlinks_list`, `referring_domains`)
+- AI search (`ai_search_overview`, `ai_search_leaderboard`, `ai_overview_keywords_by_target`)
+- Project/rank tracking (`project_list`, `project_add`, `project_keywords_list`, `project_run_position_check`)
+- Website audit (`audit_create`, `audit_status`, `audit_list`, `audit_report`)
 
-Alternatively, you can use the command line below to get the remote MCP Server created on your local machine:
+## Prerequisites
+
+- Cloudflare account + Wrangler auth
+- Node.js 20+
+- SE Ranking Data API token
+- SE Ranking Project API token
+
+## Local setup
+
+Install dependencies:
 
 ```bash
-npm create cloudflare@latest -- my-mcp-server --template=cloudflare/ai/demos/remote-mcp-authless
+npm install
 ```
 
-## Customizing your MCP Server
+Add local secrets:
 
-To add your own [tools](https://developers.cloudflare.com/agents/model-context-protocol/tools/) to the MCP server, define each tool inside the `init()` method of `src/index.ts` using `this.server.tool(...)`.
+```bash
+npx wrangler secret put DATA_API_TOKEN
+npx wrangler secret put PROJECT_API_TOKEN
+```
 
-## Connect to Cloudflare AI Playground
+Optional non-secret overrides:
 
-You can connect to your MCP server from the Cloudflare AI Playground, which is a remote MCP client:
+- `DATA_API_BASE_URL` (default: `https://api.seranking.com`)
+- `PROJECT_API_BASE_URL` (default: `https://api4.seranking.com`)
 
-1. Go to https://playground.ai.cloudflare.com/
-2. Enter your deployed MCP server URL (`remote-mcp-server-authless.<your-account>.workers.dev/sse`)
-3. You can now use your MCP tools directly from the playground!
+Run locally:
 
-## Connect Claude Desktop to your MCP server
+```bash
+npm run dev
+```
 
-You can also connect to your remote MCP server from local MCP clients, by using the [mcp-remote proxy](https://www.npmjs.com/package/mcp-remote).
+MCP endpoints:
 
-To connect to your MCP server from Claude Desktop, follow [Anthropic's Quickstart](https://modelcontextprotocol.io/quickstart/user) and within Claude Desktop go to Settings > Developer > Edit Config.
+- `http://localhost:8787/sse`
+- `http://localhost:8787/mcp`
 
-Update with this configuration:
+## Deploy to Cloudflare Workers
+
+Set production secrets:
+
+```bash
+npx wrangler secret put DATA_API_TOKEN
+npx wrangler secret put PROJECT_API_TOKEN
+```
+
+Deploy:
+
+```bash
+npm run deploy
+```
+
+Your remote MCP URL will be:
+
+- `https://<your-worker>.<your-subdomain>.workers.dev/sse`
+
+## Connect a client
+
+### Claude Desktop (via `mcp-remote`)
 
 ```json
 {
-	"mcpServers": {
-		"calculator": {
-			"command": "npx",
-			"args": [
-				"mcp-remote",
-				"http://localhost:8787/sse" // or remote-mcp-server-authless.your-account.workers.dev/sse
-			]
-		}
-	}
+  "mcpServers": {
+    "se-ranking-cloudflare": {
+      "command": "npx",
+      "args": [
+        "mcp-remote",
+        "https://<your-worker>.<your-subdomain>.workers.dev/sse"
+      ]
+    }
+  }
 }
 ```
 
-Restart Claude and you should see the tools become available.
+### Cloudflare AI Playground
+
+1. Open [Cloudflare AI Playground](https://playground.ai.cloudflare.com/).
+2. Add your MCP endpoint URL (`https://<your-worker>.<your-subdomain>.workers.dev/sse`).
+3. Use the SE Ranking tools directly in the playground.
+
+## Notes on tokens and tool scope
+
+- Data tools require `DATA_API_TOKEN`.
+- Project/audit tools require `PROJECT_API_TOKEN`.
+- If a required token is missing, the relevant tool returns an explicit token error.
+
+## References
+
+- [SE Ranking MCP guide](https://seranking.com/api/integrations/mcp/)
+- [SE Ranking API docs](https://seranking.com/api/)
