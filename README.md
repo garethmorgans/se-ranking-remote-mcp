@@ -1,10 +1,22 @@
-# SE Ranking MCP on Cloudflare Workers
+# SE Ranking MCP on Cloudflare Workers (Google OAuth Protected)
 
-Cloudflare Workers-hosted MCP server for SE Ranking Data + Project APIs. This repo is based on the Cloudflare remote MCP authless template and adapted to call SE Ranking directly (no Docker runtime required in production).
+Cloudflare Workers-hosted MCP server for SE Ranking Data + Project APIs with Google OAuth-gated access.
+
+## OAuth route model
+
+The worker exposes the same OAuth access model as your Google Analytics MCP server:
+
+- `/authorize`
+- `/token`
+- `/register`
+- `/callback`
+- `/mcp` (protected behind OAuthProvider)
+
+OAuth state is stored in KV (`OAUTH_KV`) and bound to a secure cookie (`__Host-CONSENTED_STATE`). Callback validation fails closed if state/cookie checks fail.
 
 ## What it exposes
 
-The MCP server includes tools for:
+Service tools are unchanged and available after OAuth authorization:
 
 - Keyword research (`keyword_export_metrics`, `keyword_related`, `keyword_similar`)
 - Domain analysis (`domain_overview`, `domain_keywords`, `domain_keyword_comparison`, `domain_competitors`)
@@ -19,60 +31,95 @@ The MCP server includes tools for:
 - Node.js 20+
 - SE Ranking Data API token
 - SE Ranking Project API token
+- Google OAuth 2.0 credentials (web app client)
 
-## Local setup
+## Step-by-step credential setup
 
-Install dependencies:
+### 1) Create Google OAuth credentials
+
+1. Open Google Cloud Console -> APIs & Services -> Credentials.
+2. Configure OAuth consent screen (internal or external based on your org policy).
+3. Create OAuth Client ID of type **Web application**.
+4. Add authorized redirect URIs:
+   - Local: `http://localhost:8787/callback`
+   - Production: `https://<your-worker>.<your-subdomain>.workers.dev/callback`
+
+Important: use `/callback` as redirect URI. Do **not** use `/mcp`.
+
+### 2) Create Cloudflare KV for OAuth state
 
 ```bash
-npm install
+npx wrangler kv namespace create OAUTH_KV
 ```
 
-Add local secrets:
+Copy the returned namespace ID and place it in `wrangler.jsonc` under `kv_namespaces[].id`.
+
+### 3) Set Worker secrets
+
+Local/dev secrets:
 
 ```bash
+npx wrangler secret put GOOGLE_CLIENT_ID
+npx wrangler secret put GOOGLE_CLIENT_SECRET
 npx wrangler secret put DATA_API_TOKEN
 npx wrangler secret put PROJECT_API_TOKEN
 ```
+
+Optional secrets:
+
+```bash
+npx wrangler secret put ALLOWED_EMAIL_DOMAIN
+npx wrangler secret put HOSTED_DOMAIN
+```
+
+- `ALLOWED_EMAIL_DOMAIN` defaults to `herdl.com` if omitted.
+- `HOSTED_DOMAIN` is a Google account chooser hint (`hd`), not the enforcement control.
 
 Optional non-secret overrides:
 
 - `DATA_API_BASE_URL` (default: `https://api.seranking.com`)
 - `PROJECT_API_BASE_URL` (default: `https://api4.seranking.com`)
 
-Run locally:
+## Run locally
 
 ```bash
+npm install
 npm run dev
 ```
 
-MCP endpoints:
+Local OAuth callback URL:
 
-- `http://localhost:8787/sse`
+- `http://localhost:8787/callback`
+
+Local MCP endpoint:
+
 - `http://localhost:8787/mcp`
 
 ## Deploy to Cloudflare Workers
 
-Set production secrets:
-
-```bash
-npx wrangler secret put DATA_API_TOKEN
-npx wrangler secret put PROJECT_API_TOKEN
-```
-
-Deploy:
+Set production secrets (same keys as local) and deploy:
 
 ```bash
 npm run deploy
 ```
 
-Your remote MCP URL will be:
+Production callback URL:
 
-- `https://<your-worker>.<your-subdomain>.workers.dev/sse`
+- `https://<your-worker>.<your-subdomain>.workers.dev/callback`
 
-## Connect a client
+Production MCP endpoint:
 
-### Claude Desktop (via `mcp-remote`)
+- `https://<your-worker>.<your-subdomain>.workers.dev/mcp`
+
+## Local test flow with MCP Inspector
+
+1. Start worker locally: `npm run dev`
+2. Open MCP Inspector.
+3. Connect to `http://localhost:8787/mcp`.
+4. Complete OAuth login (redirects through `/authorize` -> Google -> `/callback`).
+5. After callback success, invoke SE Ranking tools from the inspector.
+
+## Client configuration example (Claude Desktop via mcp-remote)
 
 ```json
 {
@@ -81,24 +128,19 @@ Your remote MCP URL will be:
       "command": "npx",
       "args": [
         "mcp-remote",
-        "https://<your-worker>.<your-subdomain>.workers.dev/sse"
+        "https://<your-worker>.<your-subdomain>.workers.dev/mcp"
       ]
     }
   }
 }
 ```
 
-### Cloudflare AI Playground
+## Security model summary
 
-1. Open [Cloudflare AI Playground](https://playground.ai.cloudflare.com/).
-2. Add your MCP endpoint URL (`https://<your-worker>.<your-subdomain>.workers.dev/sse`).
-3. Use the SE Ranking tools directly in the playground.
-
-## Notes on tokens and tool scope
-
-- Data tools require `DATA_API_TOKEN`.
-- Project/audit tools require `PROJECT_API_TOKEN`.
-- If a required token is missing, the relevant tool returns an explicit token error.
+- KV-backed one-time OAuth state with TTL.
+- Secure cookie-to-state hash binding.
+- Domain allowlist with default `herdl.com`, configurable via `ALLOWED_EMAIL_DOMAIN`.
+- Fail-closed on invalid/missing state, missing cookie, hash mismatch, or unauthorized domain.
 
 ## References
 
