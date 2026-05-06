@@ -198,17 +198,48 @@ export class MyMCP extends McpAgent {
 		this.server.tool(
 			"domain_keywords",
 			{
-				domain: z.string(),
+				domain: z.string().optional(),
+				url: z.string().optional(),
 				source: z.string().default("us"),
+				type: z.enum(["organic", "adv"]).default("organic"),
 				limit: z.number().int().min(1).max(MAX_PAGE_LIMIT).optional(),
 				offset: z.number().int().min(0).optional(),
+				cols: z.string().optional(),
+				order_field: z.string().optional(),
+				order_type: z.enum(["asc", "desc"]).optional(),
+				filter_intents: z.string().optional(),
+				filter_serp_features: z.string().optional(),
 			},
-			async ({ domain, source, limit, offset }) => {
+			async ({
+				domain,
+				url,
+				source,
+				type,
+				limit,
+				offset,
+				cols,
+				order_field,
+				order_type,
+				filter_intents,
+				filter_serp_features,
+			}) => {
 				const payload = await this.request(env, {
 					tokenType: "data",
 					baseUrl: dataBaseUrl,
 					path: "/v1/domain/keywords",
-					query: { domain, source, limit: clampLimit(limit), offset: offset ?? 0 },
+					query: {
+						domain,
+						url,
+						source,
+						type,
+						limit: clampLimit(limit),
+						offset: offset ?? 0,
+						cols,
+						order_field,
+						order_type,
+						"filter[intents]": filter_intents,
+						"filter[serp_features]": filter_serp_features,
+					},
 				});
 				return toTextResult(payload);
 			},
@@ -220,14 +251,45 @@ export class MyMCP extends McpAgent {
 				domain: z.string(),
 				compare: z.string(),
 				source: z.string().default("us"),
-				type: z.enum(["common", "gap"]).default("common"),
+				type: z.enum(["organic", "adv"]).default("organic"),
+				diff: z.union([z.literal(0), z.literal(1)]).default(0),
+				limit: z.number().int().min(1).max(MAX_PAGE_LIMIT).optional(),
+				order_field: z.string().optional(),
+				order_type: z.enum(["asc", "desc"]).optional(),
+				cols: z.string().optional(),
+				filter_intents: z.string().optional(),
+				filter_volume_from: z.number().int().optional(),
 			},
-			async ({ domain, compare, source, type }) => {
+			async ({
+				domain,
+				compare,
+				source,
+				type,
+				diff,
+				limit,
+				order_field,
+				order_type,
+				cols,
+				filter_intents,
+				filter_volume_from,
+			}) => {
 				const payload = await this.request(env, {
 					tokenType: "data",
 					baseUrl: dataBaseUrl,
 					path: "/v1/domain/keywords/comparison",
-					query: { domain, compare, source, type },
+					query: {
+						domain,
+						compare,
+						source,
+						type,
+						diff,
+						limit: limit ? clampLimit(limit) : undefined,
+						order_field,
+						order_type,
+						cols,
+						"filter[intents]": filter_intents,
+						"filter[volume][from]": filter_volume_from,
+					},
 				});
 				return toTextResult(payload);
 			},
@@ -246,6 +308,144 @@ export class MyMCP extends McpAgent {
 					baseUrl: dataBaseUrl,
 					path: "/v1/domain/competitors",
 					query: { domain, source, type },
+				});
+				return toTextResult(payload);
+			},
+		);
+
+		this.server.tool(
+			"domain_overview_worldwide",
+			{
+				domain: z.string(),
+				currency: z.string().default("USD"),
+				fields: z.string().optional(),
+				show_zones_list: z.union([z.literal(0), z.literal(1)]).default(0),
+			},
+			async ({ domain, currency, fields, show_zones_list }) => {
+				const payload = await this.request(env, {
+					tokenType: "data",
+					baseUrl: dataBaseUrl,
+					path: "/v1/domain/overview/worldwide",
+					query: { domain, currency, fields, show_zones_list },
+				});
+				return toTextResult(payload);
+			},
+		);
+
+		this.server.tool(
+			"domain_overview_worldwide_url",
+			{
+				url: z.string(),
+				fields: z.string().optional(),
+				currency: z.string().default("USD"),
+			},
+			async ({ url, fields, currency }) => {
+				const payload = await this.request(env, {
+					tokenType: "data",
+					baseUrl: dataBaseUrl,
+					path: "/v1/domain/overview/worldwide/url",
+					query: { url, fields, currency },
+				});
+				return toTextResult(payload);
+			},
+		);
+
+		this.server.tool(
+			"domain_overview_history",
+			{
+				domain: z.string(),
+				source: z.string().default("us"),
+				type: z.enum(["organic", "adv"]).default("organic"),
+				from: z.string().optional(),
+				to: z.string().optional(),
+			},
+			async ({ domain, source, type, from, to }) => {
+				const payload = await this.request(env, {
+					tokenType: "data",
+					baseUrl: dataBaseUrl,
+					path: "/v1/domain/overview/history",
+					query: { domain, source, type, from, to },
+				});
+				return toTextResult(payload);
+			},
+		);
+
+		this.server.tool(
+			"domain_pages",
+			{
+				target: z.string(),
+				scope: z.enum(["base_domain", "domain", "url"]).default("base_domain"),
+				source: z.string().default("us"),
+				type: z.enum(["organic", "adv"]).default("organic"),
+				limit: z.number().int().min(1).max(MAX_PAGE_LIMIT).optional(),
+				order_field: z.string().optional(),
+				order_type: z.enum(["asc", "desc"]).optional(),
+			},
+			async ({ target, scope, source, type, limit, order_field, order_type }) => {
+				const payload = await this.request(env, {
+					tokenType: "data",
+					baseUrl: dataBaseUrl,
+					path: "/v1/domain/pages",
+					query: {
+						target,
+						scope,
+						source,
+						type,
+						limit: clampLimit(limit),
+						order_field,
+						order_type,
+					},
+				});
+				return toTextResult(payload);
+			},
+		);
+
+		this.server.tool(
+			"domain_subdomains",
+			{
+				target: z.string(),
+				scope: z.enum(["base_domain", "domain", "url"]).default("base_domain"),
+				source: z.string().default("us"),
+				type: z.enum(["organic", "adv"]).default("organic"),
+				limit: z.number().int().min(1).max(MAX_PAGE_LIMIT).optional(),
+				order_field: z.string().optional(),
+				order_type: z.enum(["asc", "desc"]).optional(),
+			},
+			async ({ target, scope, source, type, limit, order_field, order_type }) => {
+				const payload = await this.request(env, {
+					tokenType: "data",
+					baseUrl: dataBaseUrl,
+					path: "/v1/domain/subdomains",
+					query: {
+						target,
+						scope,
+						source,
+						type,
+						limit: clampLimit(limit),
+						order_field,
+						order_type,
+					},
+				});
+				return toTextResult(payload);
+			},
+		);
+
+		this.server.tool(
+			"domain_ads",
+			{
+				source: z.string().default("us"),
+				keyword: z.string().optional(),
+				domain: z.string().optional(),
+				from: z.string().optional(),
+				to: z.string().optional(),
+				limit: z.number().int().min(1).max(MAX_PAGE_LIMIT).optional(),
+			},
+			async ({ source, keyword, domain, from, to, limit }) => {
+				const payload = await this.request(env, {
+					tokenType: "data",
+					baseUrl: dataBaseUrl,
+					path: "/v1/domain/ads",
+					query: { source, keyword, domain, from, to, limit: clampLimit(limit) },
 				});
 				return toTextResult(payload);
 			},

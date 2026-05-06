@@ -19,11 +19,21 @@ OAuth state is stored in KV (`OAUTH_KV`) and bound to a secure cookie (`__Host-C
 Service tools are unchanged and available after OAuth authorization:
 
 - Keyword research (`keyword_export_metrics`, `keyword_related`, `keyword_similar`)
-- Domain analysis (`domain_overview`, `domain_keywords`, `domain_keyword_comparison`, `domain_competitors`)
+- Domain analysis (`domain_overview`, `domain_overview_worldwide`, `domain_overview_worldwide_url`, `domain_overview_history`, `domain_keywords`, `domain_pages`, `domain_subdomains`, `domain_competitors`, `domain_keyword_comparison`, `domain_ads`)
 - Backlinks (`backlinks_summary`, `backlinks_list`, `referring_domains`)
 - AI search (`ai_search_overview`, `ai_search_leaderboard`, `ai_overview_keywords_by_target`)
 - Project/rank tracking (`project_list`, `project_add`, `project_keywords_list`, `project_run_position_check`)
 - Website audit (`audit_create`, `audit_status`, `audit_list`, `audit_report`)
+
+### Domain Analysis coverage notes
+
+This MCP now exposes the full SE Ranking Data API Domain Analysis set, including historical traffic/keyword history via `domain_overview_history`.
+
+Historical example inputs:
+
+- `domain_overview_history` with `type: organic`, `source: us`, `domain: seranking.com`
+- `domain_overview_history` with `type: adv`, `source: us`, `domain: seranking.com`
+- Optional date range filters with `from`/`to` (for example `2024-01`, `2025-01`)
 
 ## Prerequisites
 
